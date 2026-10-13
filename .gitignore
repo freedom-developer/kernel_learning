@@ -51,5 +51,19 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
+# Compilation databases contain machine-specific absolute paths and can be
+# regenerated with `make -C proc vscode`.
+compile_commands.json
+
+# Editor-generated caches (keep project configuration under .vscode tracked).
+.cache/clangd/
+.vscode/ipch/
+.vscode/*.db
+.vscode/*.db-shm
+.vscode/*.db-wal
+
 # debug information files
 *.dwo
+
+.vscode
+.clangd
