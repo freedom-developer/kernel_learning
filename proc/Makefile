@@ -8,6 +8,7 @@ COMPILE_COMMANDS := $(PROJECT_DIR)/compile_commands.json
 GEN_COMPILE_COMMANDS := $(KERNEL_BUILD)/scripts/clang-tools/gen_compile_commands.py
 UTIL_PROC_OBJECT := $(PROJECT_DIR)/utils/proc.o
 UTIL_PROC_COMMAND := $(PROJECT_DIR)/utils/.proc.o.cmd
+ccflags-y += -I$(src)
 
 .PHONY: all clean vscode
 

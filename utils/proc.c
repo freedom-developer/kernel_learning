@@ -11,7 +11,7 @@ struct proc_file_s {
     proc_write write;
 };
 
-static int proc_file_open(struct inode *inode, struct file *filp)
+static int proc_file_rw_open(struct inode *inode, struct file *filp)
 {
     proc_file_t *proc_file = (proc_file_t *)pde_data(inode);
     if (!proc_file || !proc_file->show)
@@ -19,7 +19,7 @@ static int proc_file_open(struct inode *inode, struct file *filp)
     return single_open(filp, proc_file->show, proc_file->data);
 }
 
-static ssize_t proc_file_write(struct file *file, const char __user *buffer, size_t count, loff_t *offset)
+static ssize_t proc_file_rw_write(struct file *file, const char __user *buffer, size_t count, loff_t *offset)
 {
     ssize_t ret;
     proc_file_t *proc_file = (proc_file_t *)pde_data(file_inode(file));
@@ -33,9 +33,9 @@ static ssize_t proc_file_write(struct file *file, const char __user *buffer, siz
 }
 
 static const struct proc_ops proc_file_rw_ops = {
-    .proc_open = proc_file_open,
+    .proc_open = proc_file_rw_open,
     .proc_read = seq_read,
-    .proc_write = proc_file_write,
+    .proc_write = proc_file_rw_write,
     .proc_lseek = seq_lseek,
     .proc_release = single_release,
 };

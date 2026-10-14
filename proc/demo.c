@@ -8,6 +8,9 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 
+#define CREATE_TRACE_POINTS
+#include "demo_trace.h"
+
 #include "../utils/proc.h"
 
 #define DEMO_DIR_NAME "proc_demo"
@@ -127,6 +130,8 @@ static void demo_seq_stop(struct seq_file *seq, void *item)
 static int demo_item_show(struct seq_file *seq, void *item)
 {
 	struct demo_item *demo_item = item;
+
+	trace_demo_item_show(demo_item->id, demo_item->name, demo_item->value);
 
 	seq_printf(seq, "id=%u name=%s value=%ld\n", demo_item->id,
 		   demo_item->name, demo_item->value);
