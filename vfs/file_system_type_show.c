@@ -2,7 +2,6 @@
 #include "file_system_type_show.h"
 
 #include <linux/fs.h>
-#include <linux/fs_parser.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/spinlock.h>
@@ -11,15 +10,19 @@ static proc_file_t *proc_file_fs_type;
 
 /*
  * file_systems 和 file_systems_lock 在 fs/filesystems.c 中是 static 符号，
- * 因此模块不能直接引用它们。地址必须由加载模块的当前内核提供；不能把
- * 某一次启动时的地址硬编码进模块（开启 KASLR 时每次启动都可能不同）。
+ * 因此模块不能直接引用它们。下面的默认值来自当前这次内核启动；开启
+ * KASLR 后重启时地址可能改变，届时可在 insmod 命令行中覆盖这两个值。
+ *
+ * 0400 是参数在 sysfs 中的权限，只禁止模块加载后修改；它并不妨碍
+ * insmod 在模块初始化之前给参数赋值。地址在模块运行期间保持只读，可以
+ * 避免 fs_type_show() 正在使用地址时，另一个任务同时将地址改掉。
  */
-static unsigned long file_systems_addr;
+static unsigned long file_systems_addr = 0xffffffffba907080UL;
 module_param(file_systems_addr, ulong, 0400);
 MODULE_PARM_DESC(file_systems_addr,
 		 "address of the kernel's file_systems variable");
 
-static unsigned long file_systems_lock_addr;
+static unsigned long file_systems_lock_addr = 0xffffffffba907078UL;
 module_param(file_systems_lock_addr, ulong, 0400);
 MODULE_PARM_DESC(file_systems_lock_addr,
 		 "address of the kernel's file_systems_lock");
@@ -56,33 +59,6 @@ static void fs_type_print_flags(struct seq_file *seq, unsigned int flags)
 	seq_puts(seq, "]\n");
 }
 
-static void fs_type_print_parameters(struct seq_file *seq,
-				     const struct fs_parameter_spec *spec)
-{
-	unsigned int index = 0;
-
-	if (!spec) {
-		seq_puts(seq, "  parameters: none\n");
-		return;
-	}
-
-	/* parameters 是支持的挂载参数描述表，并不是当前挂载的参数值。 */
-	seq_puts(seq, "  parameters:\n");
-	for (; spec->name; ++spec, ++index) {
-		seq_printf(seq, "    [%u] name=%s type=", index, spec->name);
-		/* type 为空表示不带值的开关参数，否则是参数类型解析函数。 */
-		if (spec->type)
-			seq_printf(seq, "%ps", (void *)spec->type);
-		else
-			seq_puts(seq, "flag");
-		/* data 的含义由参数类型决定，不能按通用类型解引用。 */
-		seq_printf(seq, " opt=%u flags=%#x data=%p\n",
-			   spec->opt, spec->flags, spec->data);
-		if (seq_has_overflowed(seq))
-			return;
-	}
-}
-
 static int fs_type_show(struct seq_file *seq, void *unused)
 {
 	struct file_system_type **file_systems;
@@ -98,16 +74,20 @@ static int fs_type_show(struct seq_file *seq, void *unused)
 	read_lock(file_systems_lock);
 	for (fs_type = READ_ONCE(*file_systems); fs_type;
 	     fs_type = READ_ONCE(fs_type->next), ++index) {
-		seq_printf(seq, "filesystem[%u] @%p:\n", index, fs_type);
+		seq_printf(seq, "filesystem[%u]:\n", index);
 		seq_printf(seq, "  name: %s\n", fs_type->name ?: "(null)");
 		fs_type_print_flags(seq, (unsigned int)fs_type->fs_flags);
 		/* 内建文件系统的 owner 为空；module_name() 将其显示为 kernel。 */
 		seq_printf(seq, "  owner: %s\n", module_name(fs_type->owner));
-		/* 新接口初始化挂载上下文；mount 则是旧式挂载接口。 */
-		seq_printf(seq, "  init_fs_context: %ps\n",
-			   (void *)fs_type->init_fs_context);
+		seq_putc(seq, '\n');
+
+		if (seq_has_overflowed(seq))
+			break;
 	}
 	read_unlock(file_systems_lock);
+
+	if (!seq_has_overflowed(seq))
+		seq_printf(seq, "total: %u\n", index);
 
 	return 0;
 }

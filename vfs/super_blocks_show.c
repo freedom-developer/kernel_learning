@@ -137,7 +137,8 @@ static const char *freeze_state_name(unsigned short state)
 static void print_super(struct super_block *sb, void *arg)
 {
 	struct supers_context *ctx = arg;
-	struct inode *root_inode = d_inode(sb->s_root);
+	struct inode *root_inode = sb->s_root ? d_inode(sb->s_root) : NULL;
+	struct name_snapshot root_name;
 
 	/* 输出序号只表示本次遍历顺序；superblock 链表变化后顺序也可能变化。 */
 	seq_printf(ctx->seq, "superblock[%u]:\n", ctx->count++);
@@ -220,6 +221,19 @@ static void print_super(struct super_block *sb, void *arg)
 	if (sb->s_bdev)
 		seq_printf(ctx->seq, "  block_device_size: %lld bytes\n",
 			   (long long)bdev_nr_bytes(sb->s_bdev));
+
+	/*
+	 * s_root 是该 superblock 在文件系统内部的根 dentry。先取得 d_name
+	 * 快照，再按 d_name.len 输出 d_name.name 中的具体字符串，避免与目录项
+	 * 名称变化产生竞态。根 dentry 的名称通常是 "/"；它不是当前进程挂载
+	 * 命名空间中的挂载路径，后者保存在 mount 相关结构中。
+	 */
+	if (sb->s_root) {
+		take_dentry_name_snapshot(&root_name, sb->s_root);
+		seq_printf(ctx->seq, "  root_dentry_name: '%.*s'\n",
+			   (int)root_name.name.len, root_name.name.name);
+		release_dentry_name_snapshot(&root_name);
+	}
 
 	/* superblock 根目录 inode 的编号及 mode；mode 同时包含类型位和权限位。 */
 	if (root_inode)
