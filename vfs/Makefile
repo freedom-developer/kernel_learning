@@ -1,5 +1,6 @@
 obj-m += vfs_demo.o
-vfs_demo-y := demo.o super_blocks_show.o file_system_type_show.o ../utils/proc.o
+vfs_demo-y := demo.o demo_fs.o super_blocks_show.o file_system_type_show.o \
+	../utils/proc.o
 
 KERNEL_BUILD ?= /lib/modules/$(shell uname -r)/build
 MODULE_DIR := $(CURDIR)

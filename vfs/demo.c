@@ -5,6 +5,7 @@
 #include "../utils/utils.h"
 #include "super_blocks_show.h"
 #include "file_system_type_show.h"
+#include "demo_fs.h"
 
 static struct proc_dir_entry *proc_dir_vfs;
 
@@ -24,8 +25,14 @@ static int __init vfs_demo_init(void)
 	if (ret)
 		goto remove_supers;
 
+	ret = demo_fs_init();
+	if (ret)
+		goto remove_demofs;
+
 	return 0;
 
+remove_demofs:
+	file_system_type_show_exit();
 remove_supers:
 	super_blocks_show_exit();
 remove_proc_dir:
@@ -36,9 +43,10 @@ remove_proc_dir:
 
 static void __exit vfs_demo_exit(void)
 {
+	demo_fs_exit();
 	file_system_type_show_exit();
 	super_blocks_show_exit();
-
+	
 	if (proc_dir_vfs) {
 		proc_remove(proc_dir_vfs);
 		proc_dir_vfs = NULL;
